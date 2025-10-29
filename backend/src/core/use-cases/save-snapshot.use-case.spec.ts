@@ -10,6 +10,7 @@ describe('SaveSnapshotUseCase', () => {
     mockRepository = {
       getLatestVersion: jest.fn(),
       saveSnapshot: jest.fn(),
+      saveSnapshotAtomic: jest.fn(),
       getSnapshot: jest.fn(),
       findTurbines: jest.fn(),
       deleteTurbine: jest.fn(),
@@ -26,13 +27,13 @@ describe('SaveSnapshotUseCase', () => {
     ];
 
     mockRepository.getLatestVersion.mockResolvedValue(5);
+    mockRepository.saveSnapshotAtomic.mockResolvedValue(6);
 
     const version = await useCase.execute('s1', turbines);
 
     expect(version).toBe(6);
-    expect(mockRepository.saveSnapshot).toHaveBeenCalledWith(
+    expect(mockRepository.saveSnapshotAtomic).toHaveBeenCalledWith(
       's1',
-      6,
       expect.objectContaining({
         turbines: expect.arrayContaining([
           expect.objectContaining({ id: 't1', x: 0, y: 0 }),
@@ -44,6 +45,7 @@ describe('SaveSnapshotUseCase', () => {
 
   it('should start at version 1 when no previous versions', async () => {
     mockRepository.getLatestVersion.mockResolvedValue(0);
+    mockRepository.saveSnapshotAtomic.mockResolvedValue(1);
 
     const version = await useCase.execute('s1', []);
 
