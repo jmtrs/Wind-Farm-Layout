@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Turbine } from '@/types';
@@ -217,6 +217,9 @@ export function Editor3D({
     };
     updateCameraPosition();
 
+    // Store container ref for cleanup
+    const containerElement = containerRef.current;
+
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyDown);
@@ -224,7 +227,9 @@ export function Editor3D({
       renderer.dispose();
       geometry.dispose();
       material.dispose();
-      containerRef.current?.removeChild(renderer.domElement);
+      if (containerElement) {
+        containerElement.removeChild(renderer.domElement);
+      }
     };
   }, []);
 
@@ -333,11 +338,11 @@ export function Editor3D({
     }
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!sceneRef.current) return;
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!sceneRef.current || !containerRef.current) return;
 
     const { raycaster, mouse, camera, dragPlane, previewMarker, isDragging, selectedIndex, instancedMesh } = sceneRef.current;
-    const rect = containerRef.current!.getBoundingClientRect();
+    const rect = containerRef.current.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -384,7 +389,7 @@ export function Editor3D({
       previewMarker.position.set(point.x, 50, point.z);
       previewMarker.visible = true;
     }
-  };
+  }, [turbines]);
 
   const handlePointerUp = () => {
     if (!sceneRef.current) return;

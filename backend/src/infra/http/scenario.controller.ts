@@ -4,7 +4,6 @@ import {
   Post,
   Body,
   Query,
-  Param,
   HttpCode,
 } from '@nestjs/common';
 import { ScenarioService } from './scenario.service';
