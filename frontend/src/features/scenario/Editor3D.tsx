@@ -71,9 +71,47 @@ export function Editor3D({
     const gridHelper = new THREE.GridHelper(100000, 100, 0x444444, 0x222222);
     scene.add(gridHelper);
 
-    const geometry = new THREE.CylinderGeometry(60, 60, 100, 8);
-    const material = new THREE.MeshStandardMaterial({ color: 0x4a9eff });
-    const instancedMesh = new THREE.InstancedMesh(geometry, material, 20000);
+    const towerGeometry = new THREE.CylinderGeometry(30, 40, 100, 12);
+    const nacelle = new THREE.BoxGeometry(80, 40, 50);
+    const rotor = new THREE.CircleGeometry(60, 16);
+    
+    const combinedGeometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const normals: number[] = [];
+    
+    towerGeometry.computeVertexNormals();
+    const towerPos = towerGeometry.attributes.position.array;
+    const towerNorm = towerGeometry.attributes.normal.array;
+    for (let i = 0; i < towerPos.length; i += 3) {
+      positions.push(towerPos[i], towerPos[i + 1], towerPos[i + 2]);
+      normals.push(towerNorm[i], towerNorm[i + 1], towerNorm[i + 2]);
+    }
+    
+    nacelle.computeVertexNormals();
+    const nacellePos = nacelle.attributes.position.array;
+    const nacelleNorm = nacelle.attributes.normal.array;
+    for (let i = 0; i < nacellePos.length; i += 3) {
+      positions.push(nacellePos[i], nacellePos[i + 1] + 50, nacellePos[i + 2]);
+      normals.push(nacelleNorm[i], nacelleNorm[i + 1], nacelleNorm[i + 2]);
+    }
+    
+    rotor.computeVertexNormals();
+    const rotorPos = rotor.attributes.position.array;
+    const rotorNorm = rotor.attributes.normal.array;
+    for (let i = 0; i < rotorPos.length; i += 3) {
+      positions.push(rotorPos[i], rotorPos[i + 1] + 50, rotorPos[i + 2] + 25);
+      normals.push(rotorNorm[i], rotorNorm[i + 1], rotorNorm[i + 2]);
+    }
+    
+    combinedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    combinedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+
+    const material = new THREE.MeshStandardMaterial({ 
+      color: 0xeeeeee,
+      metalness: 0.3,
+      roughness: 0.6,
+    });
+    const instancedMesh = new THREE.InstancedMesh(combinedGeometry, material, 20000);
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(instancedMesh);
 
@@ -141,9 +179,9 @@ export function Editor3D({
       instancedMesh.setMatrixAt(index, matrix);
 
       if (selectedIds.has(turbine.id)) {
-        color.setHex(0xff9944);
+        color.setHex(0xffaa00);
       } else {
-        color.setHex(0x4a9eff);
+        color.setHex(0xeeeeee);
       }
       instancedMesh.setColorAt(index, color);
     });

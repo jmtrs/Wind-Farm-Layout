@@ -22,8 +22,10 @@ export function useWs(scenarioId: string, handlers: WsHandlers) {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${location.host}/ws`);
+    const wsUrl = import.meta.env.DEV 
+      ? 'ws://localhost:3001/ws'
+      : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
