@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Turbine } from '@/types';
 
 interface Editor3DProps {
@@ -100,12 +101,75 @@ export function Editor3D({
     dragPlaneMesh.visible = false;
     scene.add(dragPlaneMesh);
 
-    // Turbina simple pero realista: torre + cruz en la parte superior
-    const turbineGeometry = new THREE.BufferGeometry();
-    const positions: number[] = [];
-    const normals: number[] = [];
+    // Cargar modelo GLB de turbina
+    const loader = new GLTFLoader();
+    let turbineGeometry: THREE.BufferGeometry | null = null;
+    let turbineMaterial: THREE.Material | null = null;
+    let instancedMesh: THREE.InstancedMesh | null = null;
+
+    loader.load(
+      '/models/turbine.glb',
+      (gltf) => {
+        // Extraer geometría del modelo cargado
+        const modelGroup = gltf.scene;
+        const geometries: THREE.BufferGeometry[] = [];
+        const materials: THREE.Material[] = [];
+        
+        modelGroup.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            geometries.push(child.geometry);
+            if (child.material) {
+              materials.push(child.material);
+            }
+          }
+        });
+
+        // Si hay múltiples geometrías, fusionarlas
+        if (geometries.length > 0) {
+          // Usar la primera geometría o fusionar si es necesario
+          turbineGeometry = geometries[0];
+          
+          // Escalar y centrar el modelo si es necesario
+          turbineGeometry.computeBoundingBox();
+          const bbox = turbineGeometry.boundingBox!;
+          const height = bbox.max.y - bbox.min.y;
+          const scale = 100 / height; // Escalar a ~100 unidades de altura
+          
+          turbineGeometry.scale(scale, scale, scale);
+          turbineGeometry.translate(0, -bbox.min.y * scale, 0);
+          
+          turbineMaterial = materials[0] || new THREE.MeshStandardMaterial({ 
+            color: 0xdddddd,
+            metalness: 0.3,
+            roughness: 0.7,
+          });
+
+          instancedMesh = new THREE.InstancedMesh(turbineGeometry, turbineMaterial, 20000);
+          instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+          instancedMesh.castShadow = true;
+          instancedMesh.receiveShadow = true;
+          scene.add(instancedMesh);
+          
+          if (sceneRef.current) {
+            sceneRef.current.instancedMesh = instancedMesh;
+          }
+        }
+      },
+      undefined,
+      (error) => {
+        console.error('Error loading turbine model:', error);
+        // Fallback a geometría simple si falla
+        createFallbackGeometry();
+      }
+    );
+
+    // Función fallback si falla la carga del modelo
+    const createFallbackGeometry = () => {
+      const fallbackGeometry = new THREE.BufferGeometry();
+      const positions: number[] = [];
+      const normals: number[] = [];
     
-    // Torre cónica (cilindro)
+      // Torre cónica (cilindro)
     const towerHeight = 80;
     const towerRadiusBottom = 25;
     const towerRadiusTop = 20;
@@ -184,32 +248,42 @@ export function Editor3D({
         for (let j = 0; j < 6; j++) {
           normals.push(nx, 0, nz);
         }
+        }
       }
-    }
+      
+      fallbackGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      fallbackGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+      fallbackGeometry.computeBoundingSphere();
+      
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0xdddddd,
+        metalness: 0.3,
+        roughness: 0.7,
+        side: THREE.DoubleSide,
+      });
+      
+      const mesh = new THREE.InstancedMesh(fallbackGeometry, material, 20000);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      
+      if (sceneRef.current) {
+        sceneRef.current.instancedMesh = mesh;
+      }
+      
+      return fallbackGeometry;
+    };
     
-    turbineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    turbineGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    turbineGeometry.computeBoundingSphere();
-    
-    const material = new THREE.MeshStandardMaterial({ 
-      color: 0xdddddd,
-      metalness: 0.3,
-      roughness: 0.7,
-      side: THREE.DoubleSide,
-    });
-    
-    const instancedMesh = new THREE.InstancedMesh(turbineGeometry, material, 20000);
-    instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    instancedMesh.castShadow = true;
-    instancedMesh.receiveShadow = true;
-    scene.add(instancedMesh);
+    // Inicializar con fallback mientras carga el modelo GLB
+    const initialGeometry = createFallbackGeometry();
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    // Preview marker verde
-    const previewGeometry = turbineGeometry.clone();
+    // Preview marker verde (usando geometría inicial)
+    const previewGeometry = initialGeometry.clone();
     const previewMaterial = new THREE.MeshStandardMaterial({ 
       color: 0x00ff00,
       transparent: true,
@@ -227,7 +301,7 @@ export function Editor3D({
       camera,
       renderer,
       controls,
-      instancedMesh,
+      instancedMesh: scene.children.find(c => c instanceof THREE.InstancedMesh) as THREE.InstancedMesh,
       turbineMap: new Map(),
       selectedIndex: null,
       raycaster,
@@ -314,8 +388,7 @@ export function Editor3D({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       renderer.dispose();
-      turbineGeometry.dispose();
-      material.dispose();
+      if (initialGeometry) initialGeometry.dispose();
       containerRef.current?.removeChild(renderer.domElement);
     };
   }, []);
