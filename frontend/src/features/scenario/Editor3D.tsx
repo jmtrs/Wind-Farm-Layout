@@ -33,7 +33,7 @@ export function Editor3D({
     mouse: THREE.Vector2;
     dragPlane: THREE.Plane;
     isDragging: boolean;
-    previewMarker: THREE.Group;
+    previewMarker: THREE.Mesh;
     dragPlaneMesh: THREE.Mesh;
   } | null>(null);
 
@@ -100,95 +100,95 @@ export function Editor3D({
     dragPlaneMesh.visible = false;
     scene.add(dragPlaneMesh);
 
-    // Crear geometría compleja de turbina con torre, nacela y aspas
-    const turbineGroup = new THREE.Group();
-    
-    // Torre cónica
-    const towerGeometry = new THREE.CylinderGeometry(30, 50, 100, 12);
-    const towerMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xe8e8e8,
-      metalness: 0.4,
-      roughness: 0.7,
-    });
-    const tower = new THREE.Mesh(towerGeometry, towerMaterial);
-    tower.position.y = 50;
-    turbineGroup.add(tower);
-    
-    // Nacela (cabina en la parte superior)
-    const nacelleGeometry = new THREE.BoxGeometry(40, 20, 80);
-    const nacelleMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xf5f5f5,
-      metalness: 0.5,
-      roughness: 0.5,
-    });
-    const nacelle = new THREE.Mesh(nacelleGeometry, nacelleMaterial);
-    nacelle.position.y = 100;
-    turbineGroup.add(nacelle);
-    
-    // Rotor hub (centro donde van las aspas)
-    const hubGeometry = new THREE.SphereGeometry(15, 16, 16);
-    const hubMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xcccccc,
-      metalness: 0.6,
-      roughness: 0.4,
-    });
-    const hub = new THREE.Mesh(hubGeometry, hubMaterial);
-    hub.position.set(0, 100, 40);
-    turbineGroup.add(hub);
-    
-    // 3 Aspas del rotor
-    const bladeGeometry = new THREE.BoxGeometry(8, 60, 2);
-    const bladeMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xfafafa,
-      metalness: 0.3,
-      roughness: 0.6,
-    });
-    
-    for (let i = 0; i < 3; i++) {
-      const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
-      blade.position.set(0, 100 + 35, 40);
-      blade.rotation.z = (Math.PI * 2 / 3) * i;
-      turbineGroup.add(blade);
-    }
-    
-    // Convertir el grupo a geometría para instancing
-    const mergedGeometry = new THREE.BufferGeometry();
+    // Turbina simple pero realista: torre + cruz en la parte superior
+    const turbineGeometry = new THREE.BufferGeometry();
     const positions: number[] = [];
     const normals: number[] = [];
-    const colors: number[] = [];
     
-    turbineGroup.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const geometry = child.geometry.clone();
-        geometry.applyMatrix4(child.matrixWorld);
-        
-        const posAttr = geometry.getAttribute('position');
-        const normAttr = geometry.getAttribute('normal');
-        
-        for (let i = 0; i < posAttr.count; i++) {
-          positions.push(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
-          normals.push(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
-          
-          // Color basado en el material original
-          const mat = child.material as THREE.MeshStandardMaterial;
-          const color = mat.color;
-          colors.push(color.r, color.g, color.b);
-        }
+    // Torre cónica (cilindro)
+    const towerHeight = 80;
+    const towerRadiusBottom = 25;
+    const towerRadiusTop = 20;
+    const towerSegments = 8;
+    
+    for (let i = 0; i < towerSegments; i++) {
+      const angle1 = (i / towerSegments) * Math.PI * 2;
+      const angle2 = ((i + 1) / towerSegments) * Math.PI * 2;
+      
+      const x1Bottom = Math.cos(angle1) * towerRadiusBottom;
+      const z1Bottom = Math.sin(angle1) * towerRadiusBottom;
+      const x2Bottom = Math.cos(angle2) * towerRadiusBottom;
+      const z2Bottom = Math.sin(angle2) * towerRadiusBottom;
+      
+      const x1Top = Math.cos(angle1) * towerRadiusTop;
+      const z1Top = Math.sin(angle1) * towerRadiusTop;
+      const x2Top = Math.cos(angle2) * towerRadiusTop;
+      const z2Top = Math.sin(angle2) * towerRadiusTop;
+      
+      // Triángulo 1
+      positions.push(x1Bottom, 0, z1Bottom);
+      positions.push(x1Top, towerHeight, z1Top);
+      positions.push(x2Bottom, 0, z2Bottom);
+      
+      // Triángulo 2
+      positions.push(x2Bottom, 0, z2Bottom);
+      positions.push(x1Top, towerHeight, z1Top);
+      positions.push(x2Top, towerHeight, z2Top);
+      
+      // Normales (simplificadas)
+      for (let j = 0; j < 6; j++) {
+        const nx = Math.cos((angle1 + angle2) / 2);
+        const nz = Math.sin((angle1 + angle2) / 2);
+        normals.push(nx, 0, nz);
       }
-    });
+    }
     
-    mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    mergedGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    mergedGeometry.computeBoundingSphere();
+    // Añadir aspas en forma de cruz en la parte superior
+    const bladeLength = 50;
+    const bladeWidth = 3;
+    const hubY = towerHeight;
+    
+    // 3 aspas rotadas 120 grados
+    for (let blade = 0; blade < 3; blade++) {
+      const angle = (blade * 120) * Math.PI / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      
+      // Aspa como rectángulo delgado
+      const hw = bladeWidth / 2;
+      
+      // Vertices del aspa (rotada)
+      const v1x = -hw * cos;
+      const v1y = hubY - hw * sin;
+      const v2x = hw * cos;
+      const v2y = hubY + hw * sin;
+      const v3x = (bladeLength - hw) * cos;
+      const v3y = hubY + (bladeLength - hw) * sin;
+      const v4x = (bladeLength + hw) * cos;
+      const v4y = hubY + (bladeLength + hw) * sin;
+      
+      // Dos triángulos para el aspa
+      positions.push(v1x, v1y, 0, v3x, v3y, 0, v2x, v2y, 0);
+      positions.push(v2x, v2y, 0, v3x, v3y, 0, v4x, v4y, 0);
+      
+      // Normales hacia adelante
+      for (let j = 0; j < 6; j++) {
+        normals.push(0, 0, 1);
+      }
+    }
+    
+    turbineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    turbineGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    turbineGeometry.computeBoundingSphere();
     
     const material = new THREE.MeshStandardMaterial({ 
-      vertexColors: true,
-      metalness: 0.4,
-      roughness: 0.6,
+      color: 0xdddddd,
+      metalness: 0.3,
+      roughness: 0.7,
+      side: THREE.DoubleSide,
     });
     
-    const instancedMesh = new THREE.InstancedMesh(mergedGeometry, material, 20000);
+    const instancedMesh = new THREE.InstancedMesh(turbineGeometry, material, 20000);
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     instancedMesh.castShadow = true;
     instancedMesh.receiveShadow = true;
@@ -198,37 +198,19 @@ export function Editor3D({
     const mouse = new THREE.Vector2();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    // Preview marker - turbina simplificada verde
-    const previewGroup = new THREE.Group();
-    const previewTower = new THREE.Mesh(
-      new THREE.CylinderGeometry(30, 50, 100, 8),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x00ff00,
-        transparent: true,
-        opacity: 0.6,
-        emissive: 0x00ff00,
-        emissiveIntensity: 0.4,
-      })
-    );
-    previewTower.position.y = 50;
-    previewGroup.add(previewTower);
-    
-    const previewNacelle = new THREE.Mesh(
-      new THREE.BoxGeometry(40, 20, 80),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x00ff00,
-        transparent: true,
-        opacity: 0.6,
-        emissive: 0x00ff00,
-        emissiveIntensity: 0.4,
-      })
-    );
-    previewNacelle.position.y = 100;
-    previewGroup.add(previewNacelle);
-    
-    previewGroup.visible = false;
-    scene.add(previewGroup);
-    const previewMarker = previewGroup;
+    // Preview marker verde
+    const previewGeometry = turbineGeometry.clone();
+    const previewMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.6,
+      emissive: 0x00ff00,
+      emissiveIntensity: 0.4,
+      side: THREE.DoubleSide,
+    });
+    const previewMarker = new THREE.Mesh(previewGeometry, previewMaterial);
+    previewMarker.visible = false;
+    scene.add(previewMarker);
 
     sceneRef.current = {
       scene,
@@ -322,7 +304,7 @@ export function Editor3D({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       renderer.dispose();
-      mergedGeometry.dispose();
+      turbineGeometry.dispose();
       material.dispose();
       containerRef.current?.removeChild(renderer.domElement);
     };
