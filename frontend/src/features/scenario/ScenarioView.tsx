@@ -134,14 +134,15 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
           }}
         >
           <div style={{ marginBottom: '8px', fontWeight: 'bold', color: '#4a9eff' }}>
-            Controls:
+            Controles:
           </div>
-          <div>🖱️ Click & Drag - Move turbine</div>
-          <div>⚡ Green preview - Where turbine will be added</div>
-          <div>🖱️ Double-click - Add turbine at preview</div>
-          <div>⇧ Shift+Click - Multi-select</div>
-          <div>🎯 Mouse wheel - Zoom</div>
-          <div>🔄 Right-click drag - Rotate view</div>
+          <div>🖱️ Click izquierdo - Seleccionar y arrastrar turbina</div>
+          <div>⚡ Verde - Vista previa donde se añade turbina</div>
+          <div>⚡ Doble-click - Añadir turbina</div>
+          <div>⇧ Shift+Click - Selección múltiple</div>
+          <div>🔄 Click izquierdo - Mover vista (pan)</div>
+          <div>🖱️ Click derecho - Rotar vista</div>
+          <div>🎯 Rueda ratón - Zoom</div>
         </div>
       </div>
       <div

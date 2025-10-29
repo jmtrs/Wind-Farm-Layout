@@ -25,7 +25,7 @@ export function useWs(scenarioId: string, handlers: WsHandlers) {
 
   useEffect(() => {
     const connect = () => {
-      const wsUrl = import.meta.env.DEV 
+    const wsUrl = (import.meta as any).env.DEV
         ? 'ws://localhost:3001/ws'
         : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
       

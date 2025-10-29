@@ -60,8 +60,18 @@ export function Editor3D({
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    controls.dampingFactor = 0.1;
     controls.maxPolarAngle = Math.PI / 2.1;
+    controls.minDistance = 1000;
+    controls.maxDistance = 100000;
+    controls.panSpeed = 1.5;
+    controls.rotateSpeed = 0.8;
+    controls.zoomSpeed = 1.2;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.PAN,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.ROTATE,
+    };
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
@@ -72,9 +82,6 @@ export function Editor3D({
 
     const gridHelper = new THREE.GridHelper(100000, 100, 0x444444, 0x222222);
     scene.add(gridHelper);
-
-    const axesHelper = new THREE.AxesHelper(5000);
-    scene.add(axesHelper);
 
     const dragPlaneGeometry = new THREE.PlaneGeometry(200000, 200000);
     const dragPlaneMaterial = new THREE.MeshBasicMaterial({ 
@@ -195,7 +202,9 @@ export function Editor3D({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!sceneRef.current) return;
-    const { raycaster, mouse, camera, instancedMesh, turbineMap } =
+    if (e.button !== 0) return; // Solo botón izquierdo
+    
+    const { raycaster, mouse, camera, instancedMesh, turbineMap, controls } =
       sceneRef.current;
 
     const rect = containerRef.current!.getBoundingClientRect();
@@ -209,6 +218,8 @@ export function Editor3D({
       const instanceId = intersects[0].instanceId;
       const turbineId = turbineMap.get(instanceId);
       if (turbineId) {
+        e.stopPropagation();
+        controls.enabled = false; // Deshabilitar OrbitControls durante drag
         sceneRef.current.selectedIndex = instanceId;
         sceneRef.current.isDragging = true;
 
@@ -232,7 +243,7 @@ export function Editor3D({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!sceneRef.current) return;
 
-    const { raycaster, mouse, camera, dragPlane, turbineMap, previewMarker, isDragging, selectedIndex } = sceneRef.current;
+    const { raycaster, mouse, camera, dragPlane, turbineMap, previewMarker, isDragging, selectedIndex, instancedMesh } = sceneRef.current;
     const rect = containerRef.current!.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -241,11 +252,17 @@ export function Editor3D({
     const point = new THREE.Vector3();
     raycaster.ray.intersectPlane(dragPlane, point);
 
-    if (isDragging && selectedIndex !== null) {
+    if (isDragging && selectedIndex !== null && point) {
       const turbineId = turbineMap.get(selectedIndex);
       if (turbineId) {
         const turbine = turbines.find((t) => t.id === turbineId);
         if (turbine) {
+          // Actualizar visualmente en tiempo real
+          const matrix = new THREE.Matrix4();
+          matrix.setPosition(point.x, turbine.hubHeight / 2, point.z);
+          instancedMesh.setMatrixAt(selectedIndex, matrix);
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          
           turbine.x = point.x;
           turbine.y = point.z;
         }
@@ -257,11 +274,15 @@ export function Editor3D({
   };
 
   const handlePointerUp = () => {
-    if (!sceneRef.current || !sceneRef.current.isDragging) return;
-    if (sceneRef.current.selectedIndex === null) return;
+    if (!sceneRef.current) return;
+    
+    const { controls, isDragging, selectedIndex, turbineMap } = sceneRef.current;
+    
+    controls.enabled = true; // Re-habilitar OrbitControls
+    
+    if (!isDragging || selectedIndex === null) return;
 
-    const { turbineMap } = sceneRef.current;
-    const turbineId = turbineMap.get(sceneRef.current.selectedIndex);
+    const turbineId = turbineMap.get(selectedIndex);
     if (turbineId) {
       const turbine = turbines.find((t) => t.id === turbineId);
       if (turbine) {
@@ -273,7 +294,7 @@ export function Editor3D({
     sceneRef.current.selectedIndex = null;
   };
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
+  const handleDoubleClick = (_e: React.MouseEvent) => {
     if (!sceneRef.current) return;
     const { previewMarker } = sceneRef.current;
 
