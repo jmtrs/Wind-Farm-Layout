@@ -35,10 +35,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - uses: actions/checkout@v4
 
@@ -47,26 +43,31 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
+        working-directory: backend
         run: npm run lint
 
       - name: Run unit tests
+        working-directory: backend
         run: npm test
 
       - name: Generate Prisma Client
+        working-directory: backend
         run: npx prisma generate
 
       - name: Run migrations
+        working-directory: backend
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://winduser:windpass@localhost:5432/windfarm
 
       - name: Build
+        working-directory: backend
         run: npm run build
 
   frontend:
