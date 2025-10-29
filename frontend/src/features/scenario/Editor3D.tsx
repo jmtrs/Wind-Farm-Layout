@@ -31,6 +31,8 @@ export function Editor3D({
     mouse: THREE.Vector2;
     dragPlane: THREE.Plane;
     isDragging: boolean;
+    previewMarker: THREE.Mesh;
+    dragPlaneMesh: THREE.Mesh;
   } | null>(null);
 
   useEffect(() => {
@@ -71,6 +73,21 @@ export function Editor3D({
     const gridHelper = new THREE.GridHelper(100000, 100, 0x444444, 0x222222);
     scene.add(gridHelper);
 
+    const axesHelper = new THREE.AxesHelper(5000);
+    scene.add(axesHelper);
+
+    const dragPlaneGeometry = new THREE.PlaneGeometry(200000, 200000);
+    const dragPlaneMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x00ff00, 
+      transparent: true, 
+      opacity: 0,
+      side: THREE.DoubleSide,
+    });
+    const dragPlaneMesh = new THREE.Mesh(dragPlaneGeometry, dragPlaneMaterial);
+    dragPlaneMesh.rotation.x = -Math.PI / 2;
+    dragPlaneMesh.visible = false;
+    scene.add(dragPlaneMesh);
+
     const geometry = new THREE.CylinderGeometry(40, 50, 120, 16);
     const material = new THREE.MeshStandardMaterial({ 
       color: 0xeeeeee,
@@ -88,6 +105,18 @@ export function Editor3D({
     const mouse = new THREE.Vector2();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
+    const previewGeometry = new THREE.CylinderGeometry(40, 50, 120, 16);
+    const previewMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.5,
+      emissive: 0x00ff00,
+      emissiveIntensity: 0.3,
+    });
+    const previewMarker = new THREE.Mesh(previewGeometry, previewMaterial);
+    previewMarker.visible = false;
+    scene.add(previewMarker);
+
     sceneRef.current = {
       scene,
       camera,
@@ -100,6 +129,8 @@ export function Editor3D({
       mouse,
       dragPlane,
       isDragging: false,
+      previewMarker,
+      dragPlaneMesh,
     };
 
     const animate = () => {
@@ -199,11 +230,9 @@ export function Editor3D({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!sceneRef.current || !sceneRef.current.isDragging) return;
-    if (sceneRef.current.selectedIndex === null) return;
+    if (!sceneRef.current) return;
 
-    const { raycaster, mouse, camera, dragPlane, turbineMap } =
-      sceneRef.current;
+    const { raycaster, mouse, camera, dragPlane, turbineMap, previewMarker, isDragging, selectedIndex } = sceneRef.current;
     const rect = containerRef.current!.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -212,13 +241,18 @@ export function Editor3D({
     const point = new THREE.Vector3();
     raycaster.ray.intersectPlane(dragPlane, point);
 
-    const turbineId = turbineMap.get(sceneRef.current.selectedIndex);
-    if (turbineId) {
-      const turbine = turbines.find((t) => t.id === turbineId);
-      if (turbine) {
-        turbine.x = point.x;
-        turbine.y = point.z;
+    if (isDragging && selectedIndex !== null) {
+      const turbineId = turbineMap.get(selectedIndex);
+      if (turbineId) {
+        const turbine = turbines.find((t) => t.id === turbineId);
+        if (turbine) {
+          turbine.x = point.x;
+          turbine.y = point.z;
+        }
       }
+    } else if (!isDragging && point) {
+      previewMarker.position.set(point.x, 60, point.z);
+      previewMarker.visible = true;
     }
   };
 
@@ -241,24 +275,27 @@ export function Editor3D({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     if (!sceneRef.current) return;
-    const { raycaster, mouse, camera } = sceneRef.current;
+    const { previewMarker } = sceneRef.current;
 
-    const rect = containerRef.current!.getBoundingClientRect();
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const point = new THREE.Vector3();
-    raycaster.ray.intersectPlane(groundPlane, point);
-
-    onAdd(Math.round(point.x), Math.round(point.z));
+    if (previewMarker.visible) {
+      onAdd(
+        Math.round(previewMarker.position.x),
+        Math.round(previewMarker.position.z)
+      );
+      previewMarker.visible = false;
+    }
   };
+
+  const cursorStyle = sceneRef.current?.isDragging ? 'grabbing' : 'grab';
 
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', cursor: 'crosshair' }}
+      style={{ 
+        width: '100%', 
+        height: '100%', 
+        cursor: cursorStyle,
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

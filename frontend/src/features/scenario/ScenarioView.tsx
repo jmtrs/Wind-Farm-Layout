@@ -119,6 +119,30 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
           onAdd={handleTurbineAdd}
           onSelect={setSelectedIds}
         />
+        <div
+          style={{
+            position: 'absolute',
+            top: '16px',
+            left: '16px',
+            background: 'rgba(0, 0, 0, 0.7)',
+            padding: '12px 16px',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#fff',
+            fontFamily: 'monospace',
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ marginBottom: '8px', fontWeight: 'bold', color: '#4a9eff' }}>
+            Controls:
+          </div>
+          <div>🖱️ Click & Drag - Move turbine</div>
+          <div>⚡ Green preview - Where turbine will be added</div>
+          <div>🖱️ Double-click - Add turbine at preview</div>
+          <div>⇧ Shift+Click - Multi-select</div>
+          <div>🎯 Mouse wheel - Zoom</div>
+          <div>🔄 Right-click drag - Rotate view</div>
+        </div>
       </div>
       <div
         style={{
