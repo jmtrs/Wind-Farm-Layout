@@ -17,7 +17,7 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
   const [calcStatus, setCalcStatus] = useState<string>('idle');
   const [aepMWh, setAepMWh] = useState<number | null>(null);
 
-  const { data: scenario } = useQuery({
+  useQuery({
     queryKey: ['scenario', scenarioId],
     queryFn: () => api.getScenario(scenarioId),
   });
