@@ -33,9 +33,8 @@ export class ScenarioService {
   }
 
   async moveTurbine(scenarioId: string, id: string, x: number, y: number) {
-    const turbine = (await this.repository.findTurbines(scenarioId)).find(
-      (t) => t.id === id,
-    );
+    const turbines = await this.repository.findTurbines(scenarioId, { limit: 1000 });
+    const turbine = turbines.find((t) => t.id === id);
     if (!turbine) throw new Error('Turbine not found');
 
     const oldPos = { x: turbine.x, y: turbine.y };
@@ -45,7 +44,7 @@ export class ScenarioService {
     await this.repository.updateTurbine(turbine);
 
     const allTurbines = await this.repository.findTurbines(scenarioId, {
-      limit: 100000,
+      limit: 15000,
     });
     const version = await this.saveSnapshot.execute(scenarioId, allTurbines);
 
@@ -84,7 +83,7 @@ export class ScenarioService {
     await this.repository.saveTurbine(turbine);
 
     const allTurbines = await this.repository.findTurbines(scenarioId, {
-      limit: 100000,
+      limit: 15000,
     });
     const version = await this.saveSnapshot.execute(scenarioId, allTurbines);
 
@@ -107,7 +106,7 @@ export class ScenarioService {
     await this.repository.deleteTurbine(id);
 
     const allTurbines = await this.repository.findTurbines(scenarioId, {
-      limit: 100000,
+      limit: 15000,
     });
     const version = await this.saveSnapshot.execute(scenarioId, allTurbines);
 

@@ -17,9 +17,6 @@ export class SaveSnapshotUseCase {
   constructor(private readonly repository: ScenarioRepository) {}
 
   async execute(scenarioId: string, turbines: Turbine[]): Promise<number> {
-    const latestVersion = await this.repository.getLatestVersion(scenarioId);
-    const newVersion = latestVersion + 1;
-
     const snapshot = {
       turbines: turbines.map((t) => ({
         id: t.id,
@@ -31,8 +28,7 @@ export class SaveSnapshotUseCase {
       })),
     };
 
-    await this.repository.saveSnapshot(scenarioId, newVersion, snapshot);
-    return newVersion;
+    return await this.repository.saveSnapshotAtomic(scenarioId, snapshot);
   }
 
   async restore(scenarioId: string, version: number): Promise<void> {

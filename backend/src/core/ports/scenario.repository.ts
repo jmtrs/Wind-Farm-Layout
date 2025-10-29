@@ -18,6 +18,8 @@ export interface ScenarioRepository {
   deleteTurbine(id: string): Promise<void>;
   
   saveSnapshot(scenarioId: string, version: number, snapshot: any): Promise<void>;
+  // Atomic version++ with retry; returns the assigned version
+  saveSnapshotAtomic(scenarioId: string, snapshot: any): Promise<number>;
   getLatestVersion(scenarioId: string): Promise<number>;
   getSnapshot(scenarioId: string, version: number): Promise<any | null>;
   getVersions(scenarioId: string): Promise<Array<{ version: number; createdAt: Date }>>;

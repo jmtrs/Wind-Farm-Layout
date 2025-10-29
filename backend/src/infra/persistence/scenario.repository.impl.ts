@@ -150,6 +150,33 @@ export class ScenarioRepositoryImpl implements ScenarioRepository {
     return data?.snapshot ?? null;
   }
 
+  async saveSnapshotAtomic(scenarioId: string, snapshot: any): Promise<number> {
+    const maxRetries = 5;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const latest = await this.getLatestVersion(scenarioId);
+        const newVersion = latest + 1;
+        
+        await this.prisma.scenarioVersion.create({
+          data: {
+            scenarioId,
+            version: newVersion,
+            snapshot,
+          },
+        });
+        
+        return newVersion;
+      } catch (error: any) {
+        if (error.code === 'P2002' && attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Failed to save snapshot after retries');
+  }
+
   async getVersions(
     scenarioId: string,
   ): Promise<Array<{ version: number; createdAt: Date }>> {
