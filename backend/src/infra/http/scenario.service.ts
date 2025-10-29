@@ -43,14 +43,9 @@ export class ScenarioService {
 
     await this.repository.updateTurbine(turbine);
 
-    const allTurbines = await this.repository.findTurbines(scenarioId, {
-      limit: 15000,
-    });
-    const version = await this.saveSnapshot.execute(scenarioId, allTurbines);
-
     this.wsGateway.broadcastToScenario(scenarioId, 'layout_changed', {
       scenarioId,
-      version,
+      version: 0,
       changes: {
         added: [],
         removed: [],
@@ -60,7 +55,7 @@ export class ScenarioService {
 
     this.scheduleCalculation(scenarioId);
 
-    return { version };
+    return { version: 0 };
   }
 
   async addTurbine(
@@ -82,14 +77,9 @@ export class ScenarioService {
 
     await this.repository.saveTurbine(turbine);
 
-    const allTurbines = await this.repository.findTurbines(scenarioId, {
-      limit: 15000,
-    });
-    const version = await this.saveSnapshot.execute(scenarioId, allTurbines);
-
     this.wsGateway.broadcastToScenario(scenarioId, 'layout_changed', {
       scenarioId,
-      version,
+      version: 0,
       changes: {
         added: [{ id: turbine.id, x: data.x, y: data.y }],
         removed: [],
@@ -99,20 +89,15 @@ export class ScenarioService {
 
     this.scheduleCalculation(scenarioId);
 
-    return { id: turbine.id, version };
+    return { id: turbine.id, version: 0 };
   }
 
   async deleteTurbine(scenarioId: string, id: string) {
     await this.repository.deleteTurbine(id);
 
-    const allTurbines = await this.repository.findTurbines(scenarioId, {
-      limit: 15000,
-    });
-    const version = await this.saveSnapshot.execute(scenarioId, allTurbines);
-
     this.wsGateway.broadcastToScenario(scenarioId, 'layout_changed', {
       scenarioId,
-      version,
+      version: 0,
       changes: {
         added: [],
         removed: [id],
@@ -122,7 +107,7 @@ export class ScenarioService {
 
     this.scheduleCalculation(scenarioId);
 
-    return { version };
+    return { version: 0 };
   }
 
   async calculate(scenarioId: string) {

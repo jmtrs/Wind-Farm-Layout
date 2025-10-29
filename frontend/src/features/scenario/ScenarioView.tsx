@@ -39,10 +39,25 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
   const wsHandlers = useMemo(
     () => ({
       onLayoutChanged: (data: any) => {
+        console.log('Layout changed:', data);
         const { changes } = data;
 
         setTurbines((prev) => {
           let updated = [...prev];
+
+          changes.added.forEach((t: any) => {
+            if (!updated.find((existing) => existing.id === t.id)) {
+              updated.push({
+                id: t.id,
+                scenarioId: data.scenarioId,
+                x: t.x,
+                y: t.y,
+                hubHeight: 100,
+                rotorD: 120,
+                powerCurve: [],
+              });
+            }
+          });
 
           changes.removed.forEach((id: string) => {
             updated = updated.filter((t) => t.id !== id);
@@ -59,6 +74,7 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
         });
       },
       onCalcStatus: (data: any) => {
+        console.log('Calc status:', data);
         setCalcStatus(data.status);
         if (data.AEP_MWh !== undefined) {
           setAepMWh(data.AEP_MWh);
