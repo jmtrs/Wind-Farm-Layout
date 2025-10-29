@@ -1,7 +1,6 @@
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Turbine } from '@/types';
 
 interface Editor3DProps {
@@ -101,223 +100,31 @@ export function Editor3D({
     dragPlaneMesh.visible = false;
     scene.add(dragPlaneMesh);
 
-    // Cargar modelo GLB de turbina
-    const loader = new GLTFLoader();
-    let turbineGeometry: THREE.BufferGeometry | null = null;
-    let turbineMaterial: THREE.Material | null = null;
-    let instancedMesh: THREE.InstancedMesh | null = null;
-
-    loader.load(
-      '/models/turbine.glb',
-      (gltf) => {
-        // Extraer geometría del modelo cargado
-        const modelGroup = gltf.scene;
-        const geometries: THREE.BufferGeometry[] = [];
-        const materials: THREE.Material[] = [];
-        
-        modelGroup.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            geometries.push(child.geometry);
-            if (child.material) {
-              materials.push(child.material);
-            }
-          }
-        });
-
-        // Si hay múltiples geometrías, fusionarlas
-        if (geometries.length > 0) {
-          // Fusionar todas las geometrías en una sola
-          const mergedGeometry = new THREE.BufferGeometry();
-          const mergedPositions: number[] = [];
-          const mergedNormals: number[] = [];
-          
-          geometries.forEach(geom => {
-            const pos = geom.getAttribute('position');
-            const norm = geom.getAttribute('normal');
-            
-            for (let i = 0; i < pos.count; i++) {
-              mergedPositions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
-              if (norm) {
-                mergedNormals.push(norm.getX(i), norm.getY(i), norm.getZ(i));
-              }
-            }
-          });
-          
-          mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mergedPositions, 3));
-          if (mergedNormals.length > 0) {
-            mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(mergedNormals, 3));
-          }
-          
-          turbineGeometry = mergedGeometry;
-          
-          // Calcular bounding box y ajustar
-          turbineGeometry.computeBoundingBox();
-          const bbox = turbineGeometry.boundingBox!;
-          const center = new THREE.Vector3();
-          bbox.getCenter(center);
-          const height = bbox.max.y - bbox.min.y;
-          
-          // Escalar a tamaño apropiado (altura ~80 unidades)
-          const targetHeight = 80;
-          const scale = targetHeight / height;
-          
-          turbineGeometry.scale(scale, scale, scale);
-          // Mover para que la base esté en y=0
-          turbineGeometry.translate(-center.x * scale, -bbox.min.y * scale, -center.z * scale);
-          
-          turbineMaterial = materials[0] || new THREE.MeshStandardMaterial({ 
-            color: 0xdddddd,
-            metalness: 0.3,
-            roughness: 0.7,
-          });
-
-          instancedMesh = new THREE.InstancedMesh(turbineGeometry, turbineMaterial, 20000);
-          instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-          instancedMesh.castShadow = true;
-          instancedMesh.receiveShadow = true;
-          scene.add(instancedMesh);
-          
-          if (sceneRef.current) {
-            sceneRef.current.instancedMesh = instancedMesh;
-          }
-        }
-      },
-      undefined,
-      (error) => {
-        console.error('Error loading turbine model:', error);
-        // Fallback a geometría simple si falla
-        createFallbackGeometry();
-      }
-    );
-
-    // Función fallback si falla la carga del modelo
-    const createFallbackGeometry = () => {
-      const fallbackGeometry = new THREE.BufferGeometry();
-      const positions: number[] = [];
-      const normals: number[] = [];
-    
-      // Torre cónica (cilindro)
-    const towerHeight = 80;
-    const towerRadiusBottom = 25;
-    const towerRadiusTop = 20;
-    const towerSegments = 8;
-    
-    for (let i = 0; i < towerSegments; i++) {
-      const angle1 = (i / towerSegments) * Math.PI * 2;
-      const angle2 = ((i + 1) / towerSegments) * Math.PI * 2;
-      
-      const x1Bottom = Math.cos(angle1) * towerRadiusBottom;
-      const z1Bottom = Math.sin(angle1) * towerRadiusBottom;
-      const x2Bottom = Math.cos(angle2) * towerRadiusBottom;
-      const z2Bottom = Math.sin(angle2) * towerRadiusBottom;
-      
-      const x1Top = Math.cos(angle1) * towerRadiusTop;
-      const z1Top = Math.sin(angle1) * towerRadiusTop;
-      const x2Top = Math.cos(angle2) * towerRadiusTop;
-      const z2Top = Math.sin(angle2) * towerRadiusTop;
-      
-      // Triángulo 1
-      positions.push(x1Bottom, 0, z1Bottom);
-      positions.push(x1Top, towerHeight, z1Top);
-      positions.push(x2Bottom, 0, z2Bottom);
-      
-      // Triángulo 2
-      positions.push(x2Bottom, 0, z2Bottom);
-      positions.push(x1Top, towerHeight, z1Top);
-      positions.push(x2Top, towerHeight, z2Top);
-      
-      // Normales (simplificadas)
-      for (let j = 0; j < 6; j++) {
-        const nx = Math.cos((angle1 + angle2) / 2);
-        const nz = Math.sin((angle1 + angle2) / 2);
-        normals.push(nx, 0, nz);
-      }
-    }
-    
-    // Añadir 3 aspas en la parte superior como líneas/barras 3D
-    const bladeLength = 40;
-    const bladeWidth = 4;
-    const hubY = towerHeight;
-    
-    // 3 aspas rotadas 120 grados en el plano Y
-    for (let blade = 0; blade < 3; blade++) {
-      const angleY = (blade * 120) * Math.PI / 180;
-      
-      // Crear aspa como una caja delgada que sale radialmente desde el centro
-      // El aspa va desde el centro hacia afuera
-      for (let i = 0; i < 2; i++) {
-        const r1 = i === 0 ? 0 : bladeLength;
-        const r2 = i === 0 ? bladeLength : bladeLength;
-        
-        const x1 = Math.sin(angleY) * r1;
-        const z1 = Math.cos(angleY) * r1;
-        const x2 = Math.sin(angleY) * r2;
-        const z2 = Math.cos(angleY) * r2;
-        
-        // Crear rectángulo del aspa (dos caras)
-        const hw = bladeWidth / 2;
-        
-        // Cara frontal
-        positions.push(
-          x1, hubY - hw, z1,
-          x2, hubY - hw, z2,
-          x1, hubY + hw, z1
-        );
-        positions.push(
-          x1, hubY + hw, z1,
-          x2, hubY - hw, z2,
-          x2, hubY + hw, z2
-        );
-        
-        // Normales perpendiculares al aspa
-        const nx = Math.cos(angleY);
-        const nz = -Math.sin(angleY);
-        for (let j = 0; j < 6; j++) {
-          normals.push(nx, 0, nz);
-        }
-        }
-      }
-      
-      fallbackGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      fallbackGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-      fallbackGeometry.computeBoundingSphere();
-      
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0xdddddd,
-        metalness: 0.3,
-        roughness: 0.7,
-        side: THREE.DoubleSide,
-      });
-      
-      const mesh = new THREE.InstancedMesh(fallbackGeometry, material, 20000);
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-      
-      if (sceneRef.current) {
-        sceneRef.current.instancedMesh = mesh;
-      }
-      
-      return fallbackGeometry;
-    };
-    
-    // Inicializar con fallback mientras carga el modelo GLB
-    const initialGeometry = createFallbackGeometry();
+    // Geometría simple de cilindro para turbina
+    const geometry = new THREE.CylinderGeometry(20, 30, 100, 12);
+    const material = new THREE.MeshStandardMaterial({ 
+      color: 0xe0e0e0,
+      metalness: 0.3,
+      roughness: 0.6,
+    });
+    const instancedMesh = new THREE.InstancedMesh(geometry, material, 20000);
+    instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    instancedMesh.castShadow = true;
+    instancedMesh.receiveShadow = true;
+    scene.add(instancedMesh);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    // Preview marker verde (usando geometría inicial)
-    const previewGeometry = initialGeometry.clone();
+    // Preview marker (cilindro verde)
+    const previewGeometry = new THREE.CylinderGeometry(20, 30, 100, 12);
     const previewMaterial = new THREE.MeshStandardMaterial({ 
       color: 0x00ff00,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.5,
       emissive: 0x00ff00,
-      emissiveIntensity: 0.4,
-      side: THREE.DoubleSide,
+      emissiveIntensity: 0.3,
     });
     const previewMarker = new THREE.Mesh(previewGeometry, previewMaterial);
     previewMarker.visible = false;
@@ -328,7 +135,7 @@ export function Editor3D({
       camera,
       renderer,
       controls,
-      instancedMesh: scene.children.find(c => c instanceof THREE.InstancedMesh) as THREE.InstancedMesh,
+      instancedMesh,
       turbineMap: new Map(),
       selectedIndex: null,
       raycaster,
@@ -415,7 +222,8 @@ export function Editor3D({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       renderer.dispose();
-      if (initialGeometry) initialGeometry.dispose();
+      geometry.dispose();
+      material.dispose();
       containerRef.current?.removeChild(renderer.domElement);
     };
   }, []);
@@ -433,7 +241,7 @@ export function Editor3D({
       turbineMap.set(index, turbine.id);
 
       matrix.identity();
-      matrix.setPosition(turbine.x, 0, turbine.y);
+      matrix.setPosition(turbine.x, 50, turbine.y); // Y=50 para centrar cilindro de 100 unidades
       instancedMesh.setMatrixAt(index, matrix);
 
       if (selectedIds.has(turbine.id)) {
@@ -544,7 +352,7 @@ export function Editor3D({
       if (turbine) {
         // Actualizar visualmente en tiempo real
         const matrix = new THREE.Matrix4();
-        matrix.setPosition(point.x, 0, point.z);
+        matrix.setPosition(point.x, 50, point.z);
         instancedMesh.setMatrixAt(selectedIndex, matrix);
         instancedMesh.instanceMatrix.needsUpdate = true;
         
@@ -573,7 +381,7 @@ export function Editor3D({
         containerRef.current.style.cursor = 'default';
       }
 
-      previewMarker.position.set(point.x, 0, point.z);
+      previewMarker.position.set(point.x, 50, point.z);
       previewMarker.visible = true;
     }
   };
