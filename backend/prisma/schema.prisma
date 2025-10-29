@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Scenario {
+  id        String            @id @default(cuid())
+  name      String
+  windRose  Json
+  createdAt DateTime          @default(now())
+  turbines  Turbine[]
+  versions  ScenarioVersion[]
+  results   Result[]
+}
+
+model Turbine {
+  id         String   @id @default(cuid())
+  scenarioId String
+  x          Float
+  y          Float
+  hubHeight  Float
+  rotorD     Float
+  powerCurve Json
+  scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([scenarioId])
+  @@index([scenarioId, id])
+}
+
+model ScenarioVersion {
+  id         String   @id @default(cuid())
+  scenarioId String
+  version    Int
+  snapshot   Json
+  createdAt  DateTime @default(now())
+  scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, version])
+  @@index([scenarioId])
+}
+
+model Result {
+  id         String   @id @default(cuid())
+  scenarioId String
+  payload    Json
+  createdAt  DateTime @default(now())
+  scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([scenarioId])
+}
