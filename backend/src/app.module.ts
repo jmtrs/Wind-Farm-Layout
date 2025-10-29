@@ -11,18 +11,10 @@ import { ScenarioService } from './infra/http/scenario.service';
   controllers: [ScenarioController],
   providers: [
     PrismaService,
-    {
-      provide: 'ScenarioRepository',
-      useClass: ScenarioRepositoryImpl,
-    },
-    {
-      provide: 'ResultCache',
-      useClass: RedisCacheService,
-    },
+    ScenarioRepositoryImpl,
+    RedisCacheService,
     WsGateway,
     ScenarioService,
-    RedisCacheService,
-    ScenarioRepositoryImpl,
   ],
 })
 export class AppModule {}

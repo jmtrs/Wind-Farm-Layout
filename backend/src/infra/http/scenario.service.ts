@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ScenarioRepository } from '@/core/ports/scenario.repository';
-import { ResultCache } from '@/core/ports/result-cache.port';
 import { CalculateYieldUseCase } from '@/core/use-cases/calculate-yield.use-case';
 import { SaveSnapshotUseCase } from '@/core/use-cases/save-snapshot.use-case';
 import { DiffWithPrevUseCase } from '@/core/use-cases/diff-with-prev.use-case';
 import { Turbine } from '@/core/entities/turbine.entity';
+import { ScenarioRepositoryImpl } from '../persistence/scenario.repository.impl';
+import { RedisCacheService } from '../cache/redis-cache.service';
 import { WsGateway } from '../ws/ws.gateway';
 
 @Injectable()
@@ -15,8 +15,8 @@ export class ScenarioService {
   private calcTimeout: NodeJS.Timeout | null = null;
 
   constructor(
-    private readonly repository: ScenarioRepository,
-    private readonly cache: ResultCache,
+    private readonly repository: ScenarioRepositoryImpl,
+    private readonly cache: RedisCacheService,
     private readonly wsGateway: WsGateway,
   ) {
     this.calculateYield = new CalculateYieldUseCase();
