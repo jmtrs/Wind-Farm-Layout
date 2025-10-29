@@ -33,7 +33,7 @@ export function Editor3D({
     mouse: THREE.Vector2;
     dragPlane: THREE.Plane;
     isDragging: boolean;
-    previewMarker: THREE.Mesh;
+    previewMarker: THREE.Group;
     dragPlaneMesh: THREE.Mesh;
   } | null>(null);
 
@@ -100,14 +100,95 @@ export function Editor3D({
     dragPlaneMesh.visible = false;
     scene.add(dragPlaneMesh);
 
-    const geometry = new THREE.CylinderGeometry(40, 50, 120, 16);
-    const material = new THREE.MeshStandardMaterial({ 
-      color: 0xeeeeee,
+    // Crear geometría compleja de turbina con torre, nacela y aspas
+    const turbineGroup = new THREE.Group();
+    
+    // Torre cónica
+    const towerGeometry = new THREE.CylinderGeometry(30, 50, 100, 12);
+    const towerMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xe8e8e8,
+      metalness: 0.4,
+      roughness: 0.7,
+    });
+    const tower = new THREE.Mesh(towerGeometry, towerMaterial);
+    tower.position.y = 50;
+    turbineGroup.add(tower);
+    
+    // Nacela (cabina en la parte superior)
+    const nacelleGeometry = new THREE.BoxGeometry(40, 20, 80);
+    const nacelleMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xf5f5f5,
+      metalness: 0.5,
+      roughness: 0.5,
+    });
+    const nacelle = new THREE.Mesh(nacelleGeometry, nacelleMaterial);
+    nacelle.position.y = 100;
+    turbineGroup.add(nacelle);
+    
+    // Rotor hub (centro donde van las aspas)
+    const hubGeometry = new THREE.SphereGeometry(15, 16, 16);
+    const hubMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xcccccc,
+      metalness: 0.6,
+      roughness: 0.4,
+    });
+    const hub = new THREE.Mesh(hubGeometry, hubMaterial);
+    hub.position.set(0, 100, 40);
+    turbineGroup.add(hub);
+    
+    // 3 Aspas del rotor
+    const bladeGeometry = new THREE.BoxGeometry(8, 60, 2);
+    const bladeMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xfafafa,
       metalness: 0.3,
       roughness: 0.6,
-      flatShading: false,
     });
-    const instancedMesh = new THREE.InstancedMesh(geometry, material, 20000);
+    
+    for (let i = 0; i < 3; i++) {
+      const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+      blade.position.set(0, 100 + 35, 40);
+      blade.rotation.z = (Math.PI * 2 / 3) * i;
+      turbineGroup.add(blade);
+    }
+    
+    // Convertir el grupo a geometría para instancing
+    const mergedGeometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const colors: number[] = [];
+    
+    turbineGroup.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const geometry = child.geometry.clone();
+        geometry.applyMatrix4(child.matrixWorld);
+        
+        const posAttr = geometry.getAttribute('position');
+        const normAttr = geometry.getAttribute('normal');
+        
+        for (let i = 0; i < posAttr.count; i++) {
+          positions.push(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+          normals.push(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
+          
+          // Color basado en el material original
+          const mat = child.material as THREE.MeshStandardMaterial;
+          const color = mat.color;
+          colors.push(color.r, color.g, color.b);
+        }
+      }
+    });
+    
+    mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    mergedGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    mergedGeometry.computeBoundingSphere();
+    
+    const material = new THREE.MeshStandardMaterial({ 
+      vertexColors: true,
+      metalness: 0.4,
+      roughness: 0.6,
+    });
+    
+    const instancedMesh = new THREE.InstancedMesh(mergedGeometry, material, 20000);
     instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     instancedMesh.castShadow = true;
     instancedMesh.receiveShadow = true;
@@ -117,17 +198,37 @@ export function Editor3D({
     const mouse = new THREE.Vector2();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    const previewGeometry = new THREE.CylinderGeometry(40, 50, 120, 16);
-    const previewMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x00ff00,
-      transparent: true,
-      opacity: 0.5,
-      emissive: 0x00ff00,
-      emissiveIntensity: 0.3,
-    });
-    const previewMarker = new THREE.Mesh(previewGeometry, previewMaterial);
-    previewMarker.visible = false;
-    scene.add(previewMarker);
+    // Preview marker - turbina simplificada verde
+    const previewGroup = new THREE.Group();
+    const previewTower = new THREE.Mesh(
+      new THREE.CylinderGeometry(30, 50, 100, 8),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.6,
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.4,
+      })
+    );
+    previewTower.position.y = 50;
+    previewGroup.add(previewTower);
+    
+    const previewNacelle = new THREE.Mesh(
+      new THREE.BoxGeometry(40, 20, 80),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.6,
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.4,
+      })
+    );
+    previewNacelle.position.y = 100;
+    previewGroup.add(previewNacelle);
+    
+    previewGroup.visible = false;
+    scene.add(previewGroup);
+    const previewMarker = previewGroup;
 
     sceneRef.current = {
       scene,
@@ -221,7 +322,7 @@ export function Editor3D({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       renderer.dispose();
-      geometry.dispose();
+      mergedGeometry.dispose();
       material.dispose();
       containerRef.current?.removeChild(renderer.domElement);
     };
@@ -380,7 +481,7 @@ export function Editor3D({
         containerRef.current.style.cursor = 'default';
       }
 
-      previewMarker.position.set(point.x, 60, point.z);
+      previewMarker.position.set(point.x, 0, point.z);
       previewMarker.visible = true;
     }
   };
