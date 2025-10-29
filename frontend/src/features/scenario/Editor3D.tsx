@@ -143,37 +143,47 @@ export function Editor3D({
       }
     }
     
-    // Añadir aspas en forma de cruz en la parte superior
-    const bladeLength = 50;
-    const bladeWidth = 3;
+    // Añadir 3 aspas en la parte superior como líneas/barras 3D
+    const bladeLength = 40;
+    const bladeWidth = 4;
     const hubY = towerHeight;
     
-    // 3 aspas rotadas 120 grados
+    // 3 aspas rotadas 120 grados en el plano Y
     for (let blade = 0; blade < 3; blade++) {
-      const angle = (blade * 120) * Math.PI / 180;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
+      const angleY = (blade * 120) * Math.PI / 180;
       
-      // Aspa como rectángulo delgado
-      const hw = bladeWidth / 2;
-      
-      // Vertices del aspa (rotada)
-      const v1x = -hw * cos;
-      const v1y = hubY - hw * sin;
-      const v2x = hw * cos;
-      const v2y = hubY + hw * sin;
-      const v3x = (bladeLength - hw) * cos;
-      const v3y = hubY + (bladeLength - hw) * sin;
-      const v4x = (bladeLength + hw) * cos;
-      const v4y = hubY + (bladeLength + hw) * sin;
-      
-      // Dos triángulos para el aspa
-      positions.push(v1x, v1y, 0, v3x, v3y, 0, v2x, v2y, 0);
-      positions.push(v2x, v2y, 0, v3x, v3y, 0, v4x, v4y, 0);
-      
-      // Normales hacia adelante
-      for (let j = 0; j < 6; j++) {
-        normals.push(0, 0, 1);
+      // Crear aspa como una caja delgada que sale radialmente desde el centro
+      // El aspa va desde el centro hacia afuera
+      for (let i = 0; i < 2; i++) {
+        const r1 = i === 0 ? 0 : bladeLength;
+        const r2 = i === 0 ? bladeLength : bladeLength;
+        
+        const x1 = Math.sin(angleY) * r1;
+        const z1 = Math.cos(angleY) * r1;
+        const x2 = Math.sin(angleY) * r2;
+        const z2 = Math.cos(angleY) * r2;
+        
+        // Crear rectángulo del aspa (dos caras)
+        const hw = bladeWidth / 2;
+        
+        // Cara frontal
+        positions.push(
+          x1, hubY - hw, z1,
+          x2, hubY - hw, z2,
+          x1, hubY + hw, z1
+        );
+        positions.push(
+          x1, hubY + hw, z1,
+          x2, hubY - hw, z2,
+          x2, hubY + hw, z2
+        );
+        
+        // Normales perpendiculares al aspa
+        const nx = Math.cos(angleY);
+        const nz = -Math.sin(angleY);
+        for (let j = 0; j < 6; j++) {
+          normals.push(nx, 0, nz);
+        }
       }
     }
     
