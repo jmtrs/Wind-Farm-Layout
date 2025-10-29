@@ -2,6 +2,8 @@
 
 3D wind farm layout editor with real-time AEP calculation (Jensen/PARK model) and WebSocket synchronization.
 
+![Wind Farm Layout Sandbox](docs/screenshot.png)
+
 ## Features
 
 - **3D Editor**: Three.js InstancedMesh for rendering 10k+ turbines
