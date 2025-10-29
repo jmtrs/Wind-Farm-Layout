@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { Editor3D } from './Editor3D';
 import { TurbineTable } from './TurbineTable';
@@ -104,7 +105,13 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
 
   const handleTurbineDelete = useCallback(
     async (id: string) => {
-      await api.deleteTurbine(scenarioId, id);
+      try {
+        await api.deleteTurbine(scenarioId, id);
+        toast.success('Turbina eliminada');
+      } catch (error) {
+        toast.error('Error al eliminar turbina');
+        console.error('Error deleting turbine:', error);
+      }
     },
     [scenarioId]
   );
@@ -118,6 +125,7 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
           onMove={handleTurbineMove}
           onAdd={handleTurbineAdd}
           onSelect={setSelectedIds}
+          onDelete={handleTurbineDelete}
         />
         <div
           style={{
@@ -140,6 +148,8 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
           <div>⚡ Marca verde - Vista previa</div>
           <div>⚡ Doble-click - Añadir turbina</div>
           <div>⇧ Shift+Click - Selección múltiple</div>
+          <div>❌ Delete/Backspace - Eliminar seleccionadas</div>
+          <div>🎮 WASD/Flechas - Mover cámara</div>
           <div>🔄 Click derecho - Rotar vista</div>
           <div>🎯 Rueda - Zoom</div>
         </div>

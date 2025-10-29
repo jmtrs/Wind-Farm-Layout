@@ -9,6 +9,7 @@ interface Editor3DProps {
   onMove: (id: string, x: number, y: number) => void;
   onAdd: (x: number, y: number) => void;
   onSelect: (ids: Set<string>) => void;
+  onDelete: (id: string) => void;
 }
 
 export function Editor3D({
@@ -17,6 +18,7 @@ export function Editor3D({
   onMove,
   onAdd,
   onSelect,
+  onDelete,
 }: Editor3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
@@ -163,8 +165,61 @@ export function Editor3D({
     };
     window.addEventListener('resize', handleResize);
 
+    // Keyboard navigation
+    const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+    const keyboardSpeed = 500;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key as keyof typeof keys;
+      if (key in keys) {
+        keys[key] = true;
+        e.preventDefault();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key as keyof typeof keys;
+      if (key in keys) {
+        keys[key] = false;
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    // Update camera position based on keyboard input
+    const updateCameraPosition = () => {
+      const forward = new THREE.Vector3();
+      const right = new THREE.Vector3();
+      
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      forward.normalize();
+      
+      right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+      
+      const movement = new THREE.Vector3();
+      
+      if (keys.w || keys.ArrowUp) movement.add(forward);
+      if (keys.s || keys.ArrowDown) movement.sub(forward);
+      if (keys.a || keys.ArrowLeft) movement.sub(right);
+      if (keys.d || keys.ArrowRight) movement.add(right);
+      
+      if (movement.length() > 0) {
+        movement.normalize().multiplyScalar(keyboardSpeed);
+        camera.position.add(movement);
+        controls.target.add(movement);
+      }
+      
+      requestAnimationFrame(updateCameraPosition);
+    };
+    updateCameraPosition();
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
       renderer.dispose();
       geometry.dispose();
       material.dispose();
@@ -202,6 +257,22 @@ export function Editor3D({
       instancedMesh.instanceColor.needsUpdate = true;
     }
   }, [turbines, selectedIds]);
+
+  // Handle Delete key for selected turbines
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
+        e.preventDefault();
+        // Eliminar todas las turbinas seleccionadas
+        selectedIds.forEach((id) => {
+          onDelete(id);
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIds, onDelete]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!sceneRef.current) return;
