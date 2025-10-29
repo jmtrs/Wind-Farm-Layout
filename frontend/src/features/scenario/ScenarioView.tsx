@@ -144,14 +144,14 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
           <div style={{ marginBottom: '8px', fontWeight: 'bold', color: '#4a9eff' }}>
             Controles:
           </div>
-          <div>🖱️ Click en turbina - Seleccionar y arrastrar</div>
-          <div>⚡ Marca verde - Vista previa</div>
-          <div>⚡ Doble-click - Añadir turbina</div>
-          <div>⇧ Shift+Click - Selección múltiple</div>
-          <div>❌ Delete/Backspace - Eliminar seleccionadas</div>
-          <div>🎮 WASD/Flechas - Mover cámara</div>
-          <div>🔄 Click derecho - Rotar vista</div>
-          <div>🎯 Rueda - Zoom</div>
+          <div>Click en turbina - Seleccionar y arrastrar</div>
+          <div>Marca verde - Vista previa</div>
+          <div>Doble-click - Añadir turbina</div>
+          <div>Shift+Click - Selección múltiple</div>
+          <div>Delete/Backspace - Eliminar seleccionadas</div>
+          <div>WASD/Flechas - Mover cámara</div>
+          <div>Click derecho - Rotar vista</div>
+          <div>Rueda - Zoom</div>
         </div>
       </div>
       <div

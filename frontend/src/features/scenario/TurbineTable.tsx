@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,7 +9,6 @@ import {
 } from '@tanstack/react-table';
 import { FixedSizeList as List } from 'react-window';
 import { Turbine } from '@/types';
-import { useState } from 'react';
 
 interface TurbineTableProps {
   turbines: Turbine[];
@@ -27,6 +26,8 @@ export function TurbineTable({
   onDelete,
 }: TurbineTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tableHeight, setTableHeight] = useState(600);
 
   const columns = useMemo(
     () => [
@@ -64,45 +65,69 @@ export function TurbineTable({
       }),
       columnHelper.accessor('id', {
         header: 'ID',
-        size: 120,
+        size: 100,
         cell: (info) => (
-          <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#aaa' }}>
             {info.getValue()}
           </span>
         ),
       }),
       columnHelper.accessor('x', {
         header: 'X',
-        size: 80,
-        cell: (info) => Math.round(info.getValue()),
+        size: 75,
+        cell: (info) => (
+          <span style={{ fontFamily: 'monospace', color: '#ddd' }}>
+            {Math.round(info.getValue())}
+          </span>
+        ),
       }),
       columnHelper.accessor('y', {
         header: 'Y',
-        size: 80,
-        cell: (info) => Math.round(info.getValue()),
+        size: 75,
+        cell: (info) => (
+          <span style={{ fontFamily: 'monospace', color: '#ddd' }}>
+            {Math.round(info.getValue())}
+          </span>
+        ),
       }),
       columnHelper.accessor('hubHeight', {
         header: 'Hub H',
-        size: 70,
-        cell: (info) => Math.round(info.getValue()),
+        size: 65,
+        cell: (info) => (
+          <span style={{ color: '#bbb' }}>
+            {Math.round(info.getValue())}
+          </span>
+        ),
       }),
       columnHelper.accessor('rotorD', {
         header: 'Rotor D',
         size: 70,
-        cell: (info) => Math.round(info.getValue()),
+        cell: (info) => (
+          <span style={{ color: '#bbb' }}>
+            {Math.round(info.getValue())}
+          </span>
+        ),
       }),
       columnHelper.display({
         id: 'actions',
-        size: 60,
+        size: 70,
         header: 'Actions',
         cell: ({ row }) => (
           <button
             onClick={() => onDelete(row.original.id)}
             style={{
-              padding: '4px 8px',
-              fontSize: '12px',
-              background: '#aa2222',
+              padding: '4px 10px',
+              fontSize: '11px',
+              background: '#dc2626',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '500',
+              transition: 'background 0.2s',
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#b91c1c')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#dc2626')}
           >
             Del
           </button>
@@ -125,6 +150,20 @@ export function TurbineTable({
 
   const rows = table.getRowModel().rows;
 
+  useEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        // Restar altura del header (44px) y footer (40px)
+        setTableHeight(rect.height - 84);
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+
   const Row = useCallback(
     ({ index, style }: { index: number; style: React.CSSProperties }) => {
       const row = rows[index];
@@ -133,8 +172,20 @@ export function TurbineTable({
           style={{
             ...style,
             display: 'flex',
-            borderBottom: '1px solid #222',
-            background: selectedIds.has(row.original.id) ? '#2a2a2a' : '#111',
+            alignItems: 'center',
+            borderBottom: '1px solid #1a1a1a',
+            background: selectedIds.has(row.original.id) ? '#1e3a5f' : index % 2 === 0 ? '#0d0d0d' : '#111',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            if (!selectedIds.has(row.original.id)) {
+              e.currentTarget.style.background = '#1a1a1a';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!selectedIds.has(row.original.id)) {
+              e.currentTarget.style.background = index % 2 === 0 ? '#0d0d0d' : '#111';
+            }
           }}
         >
           {row.getVisibleCells().map((cell) => (
@@ -142,11 +193,13 @@ export function TurbineTable({
               key={cell.id}
               style={{
                 width: cell.column.getSize(),
-                padding: '8px',
+                padding: '6px 8px',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                fontSize: '13px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
               }}
             >
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -159,14 +212,15 @@ export function TurbineTable({
   );
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div ref={containerRef} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div
         style={{
           display: 'flex',
-          background: '#1a1a1a',
-          borderBottom: '2px solid #333',
-          fontWeight: 'bold',
-          fontSize: '13px',
+          background: '#0a0a0a',
+          borderBottom: '2px solid #2a2a2a',
+          fontWeight: '600',
+          fontSize: '12px',
+          color: '#aaa',
         }}
       >
         {table.getHeaderGroups().map((headerGroup) =>
@@ -191,26 +245,32 @@ export function TurbineTable({
           ))
         )}
       </div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
         <List
-          height={600}
+          height={tableHeight}
           itemCount={rows.length}
-          itemSize={40}
+          itemSize={36}
           width="100%"
-          overscanCount={5}
+          overscanCount={10}
+          style={{ scrollbarWidth: 'thin' }}
         >
           {Row}
         </List>
       </div>
       <div
         style={{
-          padding: '8px 12px',
-          background: '#1a1a1a',
-          borderTop: '1px solid #333',
-          fontSize: '12px',
+          padding: '10px 12px',
+          background: '#0a0a0a',
+          borderTop: '2px solid #2a2a2a',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          color: '#888',
+          display: 'flex',
+          justifyContent: 'space-between',
         }}
       >
-        Total: {turbines.length} turbines | Selected: {selectedIds.size}
+        <span>Total: <strong style={{ color: '#4a9eff' }}>{turbines.length}</strong> turbinas</span>
+        <span>Seleccionadas: <strong style={{ color: '#f59e0b' }}>{selectedIds.size}</strong></span>
       </div>
     </div>
   );
