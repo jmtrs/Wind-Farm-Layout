@@ -25,10 +25,10 @@ export class DiffWithPrevUseCase {
 
     if (!current || !previous) return null;
 
-    const prevMap = new Map(
+    const prevMap = new Map<string, { x: number; y: number }>(
       previous.turbines.map((t: any) => [t.id, { x: t.x, y: t.y }]),
     );
-    const currMap = new Map(
+    const currMap = new Map<string, { x: number; y: number }>(
       current.turbines.map((t: any) => [t.id, { x: t.x, y: t.y }]),
     );
 

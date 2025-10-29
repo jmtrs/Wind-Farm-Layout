@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Turbine } from '@/types';
@@ -234,7 +234,7 @@ export function Editor3D({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     if (!sceneRef.current) return;
-    const { raycaster, mouse, camera, scene } = sceneRef.current;
+    const { raycaster, mouse, camera } = sceneRef.current;
 
     const rect = containerRef.current!.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
