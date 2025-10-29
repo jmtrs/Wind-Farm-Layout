@@ -126,17 +126,44 @@ export function Editor3D({
 
         // Si hay múltiples geometrías, fusionarlas
         if (geometries.length > 0) {
-          // Usar la primera geometría o fusionar si es necesario
-          turbineGeometry = geometries[0];
+          // Fusionar todas las geometrías en una sola
+          const mergedGeometry = new THREE.BufferGeometry();
+          const mergedPositions: number[] = [];
+          const mergedNormals: number[] = [];
           
-          // Escalar y centrar el modelo si es necesario
+          geometries.forEach(geom => {
+            const pos = geom.getAttribute('position');
+            const norm = geom.getAttribute('normal');
+            
+            for (let i = 0; i < pos.count; i++) {
+              mergedPositions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+              if (norm) {
+                mergedNormals.push(norm.getX(i), norm.getY(i), norm.getZ(i));
+              }
+            }
+          });
+          
+          mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mergedPositions, 3));
+          if (mergedNormals.length > 0) {
+            mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(mergedNormals, 3));
+          }
+          
+          turbineGeometry = mergedGeometry;
+          
+          // Calcular bounding box y ajustar
           turbineGeometry.computeBoundingBox();
           const bbox = turbineGeometry.boundingBox!;
+          const center = new THREE.Vector3();
+          bbox.getCenter(center);
           const height = bbox.max.y - bbox.min.y;
-          const scale = 100 / height; // Escalar a ~100 unidades de altura
+          
+          // Escalar a tamaño apropiado (altura ~80 unidades)
+          const targetHeight = 80;
+          const scale = targetHeight / height;
           
           turbineGeometry.scale(scale, scale, scale);
-          turbineGeometry.translate(0, -bbox.min.y * scale, 0);
+          // Mover para que la base esté en y=0
+          turbineGeometry.translate(-center.x * scale, -bbox.min.y * scale, -center.z * scale);
           
           turbineMaterial = materials[0] || new THREE.MeshStandardMaterial({ 
             color: 0xdddddd,
@@ -406,7 +433,7 @@ export function Editor3D({
       turbineMap.set(index, turbine.id);
 
       matrix.identity();
-      matrix.setPosition(turbine.x, turbine.hubHeight / 2, turbine.y);
+      matrix.setPosition(turbine.x, 0, turbine.y);
       instancedMesh.setMatrixAt(index, matrix);
 
       if (selectedIds.has(turbine.id)) {
@@ -517,7 +544,7 @@ export function Editor3D({
       if (turbine) {
         // Actualizar visualmente en tiempo real
         const matrix = new THREE.Matrix4();
-        matrix.setPosition(point.x, turbine.hubHeight / 2, point.z);
+        matrix.setPosition(point.x, 0, point.z);
         instancedMesh.setMatrixAt(selectedIndex, matrix);
         instancedMesh.instanceMatrix.needsUpdate = true;
         
