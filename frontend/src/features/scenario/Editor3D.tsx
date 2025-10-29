@@ -60,18 +60,21 @@ export function Editor3D({
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
+    controls.dampingFactor = 0.08;
     controls.maxPolarAngle = Math.PI / 2.1;
-    controls.minDistance = 1000;
-    controls.maxDistance = 100000;
-    controls.panSpeed = 1.5;
-    controls.rotateSpeed = 0.8;
-    controls.zoomSpeed = 1.2;
+    controls.minDistance = 500;
+    controls.maxDistance = 150000;
+    controls.panSpeed = 2.0;
+    controls.rotateSpeed = 1.0;
+    controls.zoomSpeed = 1.5;
+    controls.screenSpacePanning = true;
+    // Solo botón derecho y medio controlan la cámara
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.ROTATE,
     };
+    controls.enablePan = false; // Deshabilitamos pan, solo rotar y zoom
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
@@ -204,36 +207,54 @@ export function Editor3D({
     if (!sceneRef.current) return;
     if (e.button !== 0) return; // Solo botón izquierdo
     
-    const { raycaster, mouse, camera, instancedMesh, turbineMap, controls } =
-      sceneRef.current;
+    const { raycaster, mouse, camera, dragPlane, controls } = sceneRef.current;
 
     const rect = containerRef.current!.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
+    // Encontrar punto en el plano de arrastre
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(instancedMesh);
+    const point = new THREE.Vector3();
+    raycaster.ray.intersectPlane(dragPlane, point);
 
-    if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
-      const instanceId = intersects[0].instanceId;
-      const turbineId = turbineMap.get(instanceId);
-      if (turbineId) {
-        e.stopPropagation();
-        controls.enabled = false; // Deshabilitar OrbitControls durante drag
-        sceneRef.current.selectedIndex = instanceId;
-        sceneRef.current.isDragging = true;
+    if (!point) {
+      onSelect(new Set());
+      return;
+    }
 
-        if (e.shiftKey) {
-          const newSelected = new Set(selectedIds);
-          if (newSelected.has(turbineId)) {
-            newSelected.delete(turbineId);
-          } else {
-            newSelected.add(turbineId);
-          }
-          onSelect(newSelected);
+    // Buscar turbina más cercana al punto del click (en 2D)
+    type ClosestTurbine = { id: string; index: number; distance: number };
+    let closestTurbine: ClosestTurbine | null = null;
+    const maxClickDistance = 300; // Distancia máxima para considerar un click
+
+    turbines.forEach((turbine, index) => {
+      const dx = turbine.x - point.x;
+      const dy = turbine.y - point.z;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < maxClickDistance && (!closestTurbine || distance < closestTurbine.distance)) {
+        closestTurbine = { id: turbine.id, index, distance };
+      }
+    });
+
+    if (closestTurbine) {
+      const selectedTurbine: ClosestTurbine = closestTurbine;
+      e.stopPropagation();
+      controls.enabled = false; // Deshabilitar OrbitControls durante drag
+      sceneRef.current.selectedIndex = selectedTurbine.index;
+      sceneRef.current.isDragging = true;
+
+      if (e.shiftKey) {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(selectedTurbine.id)) {
+          newSelected.delete(selectedTurbine.id);
         } else {
-          onSelect(new Set([turbineId]));
+          newSelected.add(selectedTurbine.id);
         }
+        onSelect(newSelected);
+      } else {
+        onSelect(new Set([selectedTurbine.id]));
       }
     } else {
       onSelect(new Set());
@@ -243,7 +264,7 @@ export function Editor3D({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!sceneRef.current) return;
 
-    const { raycaster, mouse, camera, dragPlane, turbineMap, previewMarker, isDragging, selectedIndex, instancedMesh } = sceneRef.current;
+    const { raycaster, mouse, camera, dragPlane, previewMarker, isDragging, selectedIndex, instancedMesh } = sceneRef.current;
     const rect = containerRef.current!.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -252,22 +273,42 @@ export function Editor3D({
     const point = new THREE.Vector3();
     raycaster.ray.intersectPlane(dragPlane, point);
 
-    if (isDragging && selectedIndex !== null && point) {
-      const turbineId = turbineMap.get(selectedIndex);
-      if (turbineId) {
-        const turbine = turbines.find((t) => t.id === turbineId);
-        if (turbine) {
-          // Actualizar visualmente en tiempo real
-          const matrix = new THREE.Matrix4();
-          matrix.setPosition(point.x, turbine.hubHeight / 2, point.z);
-          instancedMesh.setMatrixAt(selectedIndex, matrix);
-          instancedMesh.instanceMatrix.needsUpdate = true;
-          
-          turbine.x = point.x;
-          turbine.y = point.z;
-        }
+    if (!point) return;
+
+    if (isDragging && selectedIndex !== null) {
+      const turbine = turbines[selectedIndex];
+      if (turbine) {
+        // Actualizar visualmente en tiempo real
+        const matrix = new THREE.Matrix4();
+        matrix.setPosition(point.x, turbine.hubHeight / 2, point.z);
+        instancedMesh.setMatrixAt(selectedIndex, matrix);
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        
+        turbine.x = point.x;
+        turbine.y = point.z;
       }
-    } else if (!isDragging && point) {
+    } else if (!isDragging) {
+      // Buscar turbina bajo el cursor
+      let closestTurbine: { index: number; distance: number } | null = null;
+      const hoverDistance = 200;
+
+      turbines.forEach((turbine, index) => {
+        const dx = turbine.x - point.x;
+        const dy = turbine.y - point.z;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < hoverDistance && (!closestTurbine || distance < closestTurbine.distance)) {
+          closestTurbine = { index, distance };
+        }
+      });
+
+      // Cambiar cursor si hay turbina bajo el ratón
+      if (closestTurbine && containerRef.current) {
+        containerRef.current.style.cursor = 'pointer';
+      } else if (containerRef.current) {
+        containerRef.current.style.cursor = 'default';
+      }
+
       previewMarker.position.set(point.x, 60, point.z);
       previewMarker.visible = true;
     }
@@ -276,18 +317,15 @@ export function Editor3D({
   const handlePointerUp = () => {
     if (!sceneRef.current) return;
     
-    const { controls, isDragging, selectedIndex, turbineMap } = sceneRef.current;
+    const { controls, isDragging, selectedIndex } = sceneRef.current;
     
     controls.enabled = true; // Re-habilitar OrbitControls
     
     if (!isDragging || selectedIndex === null) return;
 
-    const turbineId = turbineMap.get(selectedIndex);
-    if (turbineId) {
-      const turbine = turbines.find((t) => t.id === turbineId);
-      if (turbine) {
-        onMove(turbineId, Math.round(turbine.x), Math.round(turbine.y));
-      }
+    const turbine = turbines[selectedIndex];
+    if (turbine) {
+      onMove(turbine.id, Math.round(turbine.x), Math.round(turbine.y));
     }
 
     sceneRef.current.isDragging = false;
@@ -307,15 +345,12 @@ export function Editor3D({
     }
   };
 
-  const cursorStyle = sceneRef.current?.isDragging ? 'grabbing' : 'grab';
-
   return (
     <div
       ref={containerRef}
       style={{ 
         width: '100%', 
-        height: '100%', 
-        cursor: cursorStyle,
+        height: '100%',
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
