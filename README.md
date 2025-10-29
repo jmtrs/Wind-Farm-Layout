@@ -65,8 +65,10 @@ npm run dev
 ### Access Points
 
 - **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3000
-- **WebSocket**: ws://localhost:3000/ws
+- **Backend API**: http://localhost:3001
+- **WebSocket**: ws://localhost:3001/ws
+- **PostgreSQL**: localhost:5433
+- **Redis**: localhost:6379
 - **Prisma Studio**: `npx prisma studio` (from backend directory)
 
 ### Running Tests
