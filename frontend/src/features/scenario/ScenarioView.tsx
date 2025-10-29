@@ -30,11 +30,8 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
   useMemo(() => {
     if (initialTurbines) {
       setTurbines(initialTurbines);
-      if (initialTurbines.length > 0) {
-        api.calculate(scenarioId).catch(console.error);
-      }
     }
-  }, [initialTurbines, scenarioId]);
+  }, [initialTurbines]);
 
   const wsHandlers = useMemo(
     () => ({

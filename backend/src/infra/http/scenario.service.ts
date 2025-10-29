@@ -53,8 +53,6 @@ export class ScenarioService {
       },
     });
 
-    this.scheduleCalculation(scenarioId);
-
     return { version: 0 };
   }
 
@@ -87,8 +85,6 @@ export class ScenarioService {
       },
     });
 
-    this.scheduleCalculation(scenarioId);
-
     return { id: turbine.id, version: 0 };
   }
 
@@ -104,8 +100,6 @@ export class ScenarioService {
         moved: [],
       },
     });
-
-    this.scheduleCalculation(scenarioId);
 
     return { version: 0 };
   }
